@@ -5,7 +5,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Spec](https://img.shields.io/badge/Spec-PRD_v1.2.2-blue.svg)](PRD.md)
-[![Stage](https://img.shields.io/badge/Stage-M1_MVP_Verified-emerald.svg)](PRD.md)
+[![Stage](https://img.shields.io/badge/Stage-M2_Local_ASR_Verified-emerald.svg)](PRD.md)
 
 *(註：本文件目前先提供**繁體中文版**，待 M1–M4 達發布階段將補齊 English / 简体中文 / 日本語 等多語系版本。)*
 
@@ -66,7 +66,7 @@ duration_coverage_ratio: 0.985
 | 模組 / 能力 | 目標階段 | 當前狀態 | 說明 |
 | :--- | :--- | :--- | :--- |
 | **MCP 介面 (`FastMCP` Stdio, 4 Tools) + L1 單語字幕** | M1 | `VERIFIED` | 同步執行 + 共用 `deadline`，已通過 12/12 離線測試、Stdio 0-Byte 純淨性與真實 YouTube L1 `.md` 實機驗收 |
-| **L2 本機離線 ASR（NVIDIA CUDA / CPU `int8`）** | M2 | `PLANNED` | 分層能力探測 + `openai-whisper` / `faster-whisper` 獨立後端驗證與 `RTF` 量測 |
+| **L2 本機離線 ASR（NVIDIA CUDA / CPU `int8`）** | M2 | `VERIFIED` | 已於本機 RTX 4060 Laptop GPU 通過四階段探測、15/15 離線測試與 16:32 中文實測（`RTF = 0.0413`，40.94 秒完成，0 元離線） |
 | **L2 延伸硬體（Apple Silicon MPS）** | M2 | `EXPERIMENTAL` | 視實機 Capability Probe 結果啟用，異常自動退回 CPU `int8` |
 | **雙層快取治理 + 跨程序鎖 + 安全閘門 + Benchmark** | M3 | `PLANNED` | 原子寫入、音檔/模型指紋、路徑防穿越與多場景固定音檔基準測試 |
 | **L3 Google Colab GPU 備援（macOS / Linux / WSL2）** | M4 | `PLANNED` | 選配 Opt-in，內建 `ColabRuntimeLifecycleManager`（`owner_id` 隔離與啟動恢復） |
@@ -108,6 +108,13 @@ flowchart LR
 | **NVIDIA CUDA（4–6 GB VRAM）** | `PLANNED` (M2) | `faster-whisper (CTranslate2 int8)` | `small`（避開大 VRAM 模型 OOM） |
 | **無獨顯 / VRAM < 4 GB（純 CPU）** | `PLANNED` (M2) | `faster-whisper (CTranslate2 cpu int8)` | `small` / `base` |
 | **Apple Silicon (`PyTorch MPS`)** | `EXPERIMENTAL` | `openai-whisper (mps)` / `faster-whisper (cpu int8)` | 經探測異常自動退回 CPU `int8` |
+
+### 📊 實機 `RTF` 基準測試紀錄（附完整測試條件）
+* **測試日期**：`2026-11-22`
+* **硬體環境**：Windows 11 / Intel i5-12500H / **NVIDIA GeForce RTX 4060 Laptop GPU（8,188 MiB Total / 7,566 MiB Free, Driver 621.14）**
+* **引擎與模型**：`faster-whisper 1.2.1` (`ctranslate2 4.9.1`, `cuda`, `float16`, `deepdml/faster-whisper-large-v3-turbo-ct2`, `beam_size=5`, `vad_filter=True`)
+* **測試素材**：16 分 32 秒（`992.3s`）中文談話節目音檔（`m4a`，`ffmpeg` 解碼為 16kHz mono PCM）
+* **實測結果**：純 ASR 推論耗時 **`40.94 秒`** → **`RTF = 0.0413`**（約 **24.2x 即時速度**，產出 488 段；不含首次模型權重下載時間，後續熱啟動僅需數秒載入）。
 
 ---
 

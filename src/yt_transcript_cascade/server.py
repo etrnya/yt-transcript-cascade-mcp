@@ -8,7 +8,11 @@ import sys
 from pathlib import Path
 from typing import Any, Literal
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.mcpserver import MCPServer as _MCPServer  # mcp >= 2.0
+except ImportError:  # pragma: no cover - fallback for mcp 1.x
+    from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore
+
 from pydantic import ValidationError
 
 from .application.orchestrator import CascadeOrchestrator
@@ -34,7 +38,7 @@ def _default_save_root() -> Path:
     return Path(env_root).resolve() if env_root else Path.cwd().resolve()
 
 
-mcp = FastMCP("yt-transcript-cascade-mcp")
+mcp = _MCPServer("yt-transcript-cascade-mcp")
 _orchestrator = CascadeOrchestrator(allowed_save_root=_default_save_root())
 
 

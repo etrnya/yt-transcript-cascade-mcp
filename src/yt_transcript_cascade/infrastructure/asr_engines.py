@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from ..domain.models import CascadeError, ErrorCode, TranscriptSegment
-from .hardware_detector import AsrStrategy
+from .hardware_detector import AsrStrategy, register_nvidia_pip_dll_dirs
 
 
 @dataclass(frozen=True)
@@ -106,6 +106,7 @@ class FasterWhisperEngine:
 
     def load_model(self, strategy: AsrStrategy) -> float:
         t0 = time.monotonic()
+        register_nvidia_pip_dll_dirs()
         try:
             from faster_whisper import WhisperModel  # type: ignore
 
@@ -196,6 +197,7 @@ class OpenAIWhisperEngine:
 
     def load_model(self, strategy: AsrStrategy) -> float:
         t0 = time.monotonic()
+        register_nvidia_pip_dll_dirs()
         try:
             import whisper  # type: ignore
 

@@ -2,13 +2,48 @@
 
 from __future__ import annotations
 
+import os
 import platform
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from ..domain.models import HardwareProfile
+
+_DLL_HANDLES: list[object] = []
+
+
+def register_nvidia_pip_dll_dirs() -> None:
+    """On Windows, register pip-installed nvidia/*/bin DLL paths so CTranslate2 finds cublas/cudnn."""
+    if os.name != "nt":
+        return
+    for base in sys.path:
+        nvidia_dir = Path(base) / "nvidia"
+        if not nvidia_dir.is_dir():
+            continue
+        for bin_dir in nvidia_dir.glob("*/bin"):
+            if bin_dir.is_dir():
+                bin_str = str(bin_dir.resolve())
+                if hasattr(os, "add_dll_directory"):
+                    try:
+                        _DLL_HANDLES.append(os.add_dll_directory(bin_str))
+                    except OSError:
+                        pass
+                if bin_str not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = bin_str + os.pathsep + os.environ.get("PATH", "")
+
+
+def _probe_ctranslate2_cuda() -> bool:
+    register_nvidia_pip_dll_dirs()
+    try:
+        import ctranslate2  # type: ignore
+
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:
+        return False
 
 
 @dataclass(frozen=True)
@@ -69,15 +104,6 @@ def _probe_pytorch_mps() -> bool:
         t = torch.zeros((2, 2), device="mps")
         _ = float((t + 1.0).sum().item())
         return True
-    except Exception:
-        return False
-
-
-def _probe_ctranslate2_cuda() -> bool:
-    try:
-        import ctranslate2  # type: ignore
-
-        return ctranslate2.get_cuda_device_count() > 0
     except Exception:
         return False
 
