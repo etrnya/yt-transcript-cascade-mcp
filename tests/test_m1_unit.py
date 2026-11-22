@@ -205,7 +205,10 @@ class TestVttQualityFormatterAndCache(unittest.TestCase):
                 source_cache=SourceCache(cache_dir=root / "cache"),
                 allowed_save_root=root,
             )
-            res = orch.get_transcript(GetTranscriptInput(url="https://youtu.be/mIg76INLBMU"))
+            # L1_ONLY stops immediately with RATE_LIMITED
+            res = orch.get_transcript(
+                GetTranscriptInput(url="https://youtu.be/mIg76INLBMU", execution_mode=ExecutionMode.L1_ONLY)
+            )
             self.assertFalse(res["ok"])
             self.assertEqual(res["error"]["code"], "RATE_LIMITED")
 

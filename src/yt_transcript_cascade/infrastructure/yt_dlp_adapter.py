@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -30,6 +31,17 @@ class SubtitleFetchOutput:
     segments: list[TranscriptSegment]
     download_sec: float
     warnings: list[str]
+
+
+@dataclass(frozen=True)
+class AudioDownloadOutput:
+    video_id: str
+    title: str | None
+    channel: str | None
+    duration_sec: float | None
+    audio_path: Path
+    audio_fingerprint: str
+    download_sec: float
 
 
 def _ts_to_sec(h: str | None, m: str, s: str, ms: str) -> float:
@@ -229,4 +241,71 @@ class YtDlpAdapter:
             segments=segments,
             download_sec=round(time.monotonic() - t0, 3),
             warnings=[],
+        )
+
+    def download_audio(
+        self,
+        video_id: str,
+        out_dir: Path,
+        *,
+        deadline: float,
+    ) -> AudioDownloadOutput:
+        """Download bestaudio for L2/L3 using video_id-only filename and compute SHA-256 fingerprint."""
+        t0 = time.monotonic()
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Fetch lightweight metadata first so we know title/channel/duration
+        probe_res = self._run_cmd(
+            [self.yt_dlp_bin, "--no-update", "--skip-download", "--dump-json", url],
+            deadline=deadline,
+        )
+        if probe_res.returncode != 0 or not probe_res.stdout.strip():
+            raise _classify_yt_dlp_error(probe_res.stderr, during_subtitle_dl=False)
+
+        try:
+            info = json.loads(probe_res.stdout)
+        except json.JSONDecodeError as exc:
+            raise CascadeError(ErrorCode.UNKNOWN_ERROR, "Failed to parse yt-dlp metadata JSON.") from exc
+
+        out_tpl = str(out_dir / f"{video_id}.%(ext)s")
+        dl_res = self._run_cmd(
+            [
+                self.yt_dlp_bin,
+                "--no-update",
+                "-f",
+                "bestaudio[ext=m4a]/bestaudio",
+                "-o",
+                out_tpl,
+                url,
+            ],
+            deadline=deadline,
+        )
+        if dl_res.returncode != 0:
+            err = _classify_yt_dlp_error(dl_res.stderr, during_subtitle_dl=False)
+            if err.code in (ErrorCode.AUTH_REQUIRED, ErrorCode.VIDEO_UNAVAILABLE, ErrorCode.TIMEOUT):
+                raise err
+            raise CascadeError(
+                ErrorCode.AUDIO_DOWNLOAD_FAILED,
+                f"Failed to download audio for '{video_id}': {dl_res.stderr.strip()[-300:]}",
+            )
+
+        candidates = [p for p in out_dir.glob(f"{video_id}.*") if p.is_file() and not p.name.endswith(".part")]
+        if not candidates:
+            raise CascadeError(ErrorCode.AUDIO_DOWNLOAD_FAILED, f"yt-dlp produced no audio file for '{video_id}'.")
+
+        audio_path = candidates[0]
+        h = hashlib.sha256()
+        with audio_path.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                h.update(chunk)
+
+        return AudioDownloadOutput(
+            video_id=video_id,
+            title=info.get("title"),
+            channel=info.get("channel") or info.get("uploader"),
+            duration_sec=float(info["duration"]) if info.get("duration") is not None else None,
+            audio_path=audio_path,
+            audio_fingerprint=h.hexdigest(),
+            download_sec=round(time.monotonic() - t0, 3),
         )
