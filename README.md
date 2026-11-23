@@ -5,9 +5,9 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Spec](https://img.shields.io/badge/Spec-PRD_v1.2.2-blue.svg)](PRD.md)
-[![Stage](https://img.shields.io/badge/Stage-M2_Local_ASR_Verified-emerald.svg)](PRD.md)
+[![Stage](https://img.shields.io/badge/Version-v1.0.0-emerald.svg)](PRD.md)
 
-*(註：本文件目前先提供**繁體中文版**，待 M1–M4 達發布階段將補齊 English / 简体中文 / 日本語 等多語系版本。)*
+🌐 **語言切換 / Languages**: **繁體中文** | [English](README_EN.md) | [简体中文](README_ZH_CN.md) | [日本語](README_JA.md)
 
 ---
 
@@ -68,8 +68,8 @@ duration_coverage_ratio: 0.985
 | **MCP 介面 (`FastMCP` Stdio, 4 Tools) + L1 單語字幕** | M1 | `VERIFIED` | 同步執行 + 共用 `deadline`，已通過 12/12 離線測試、Stdio 0-Byte 純淨性與真實 YouTube L1 `.md` 實機驗收 |
 | **L2 本機離線 ASR（NVIDIA CUDA / CPU `int8`）** | M2 | `VERIFIED` | 已於本機 RTX 4060 Laptop GPU 通過四階段探測、15/15 離線測試與 16:32 中文實測（`RTF = 0.0413`，40.94 秒完成，0 元離線） |
 | **L2 延伸硬體（Apple Silicon MPS）** | M2 | `EXPERIMENTAL` | 視實機 Capability Probe 結果啟用，異常自動退回 CPU `int8` |
-| **雙層快取治理 + 跨程序鎖 + 安全閘門 + Benchmark** | M3 | `PLANNED` | 原子寫入、音檔/模型指紋、路徑防穿越與多場景固定音檔基準測試 |
-| **L3 Google Colab GPU 備援（macOS / Linux / WSL2）** | M4 | `PLANNED` | 選配 Opt-in，內建 `ColabRuntimeLifecycleManager`（`owner_id` 隔離與啟動恢復） |
+| **雙層快取治理 + 跨程序鎖 + 安全閘門 + Benchmark** | M3 | `VERIFIED` | 雙層快取（Source + 9 元組指紋 ASR Cache）、LRU/TTL 淘汰、跨程序檔案鎖（`msvcrt`/`flock`）、AST 零 `shell=True` 安全測試與 `scripts/benchmark_asr.py` 均已通過離線測試 |
+| **L3 Google Colab GPU 備援（macOS / Linux / WSL2）** | M4 | `VERIFIED` | 選配 Opt-in，已實作 `ColabAsrAdapter` 與 `ColabRuntimeLifecycleManager`（`owner_id` 隔離、3 次清理失敗停駐 `STOP_FAILED`、冷卻期單次補試、上傳前 `cloud_upload_notice`） |
 | **L3 Google Colab GPU 備援（Windows 原生）** | M4 | `EXPERIMENTAL` | 上游 `google-colab-cli` 官方支援 Linux/macOS，Windows 原生僅列實驗性 |
 
 *(註：AMD ROCm 尚未完成實機驗證，暫不列入正式支援矩陣。)*
