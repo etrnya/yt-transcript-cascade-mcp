@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import gc
+import hashlib
+import importlib.metadata
 import subprocess
 import time
 from dataclasses import dataclass
@@ -11,6 +13,32 @@ from typing import Protocol
 
 from ..domain.models import CascadeError, ErrorCode, TranscriptSegment
 from .hardware_detector import AsrStrategy, register_nvidia_pip_dll_dirs
+
+
+def get_engine_version(engine_name: str) -> str:
+    """Resolve installed package version for ASR cache key fingerprinting."""
+    pkg_map = {
+        "faster-whisper": "faster-whisper",
+        "openai-whisper": "openai-whisper",
+    }
+    pkg = pkg_map.get(engine_name, engine_name)
+    try:
+        return importlib.metadata.version(pkg)
+    except Exception:
+        return "unknown"
+
+
+def compute_model_fingerprint(strategy: AsrStrategy, *, engine_version: str | None = None) -> str:
+    """Compute a deterministic model fingerprint for ASR cache identity."""
+    ver = engine_version if engine_version is not None else get_engine_version(strategy.engine)
+    model_id = (
+        "deepdml/faster-whisper-large-v3-turbo-ct2"
+        if strategy.engine == "faster-whisper" and strategy.model_name == "turbo"
+        else strategy.model_name
+    )
+    raw = f"{strategy.engine}|{ver}|{model_id}|{strategy.device}|{strategy.compute_type}"
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    return f"{strategy.engine}:{strategy.model_name}:{strategy.compute_type}:{digest}"
 
 
 @dataclass(frozen=True)
